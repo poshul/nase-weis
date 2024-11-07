@@ -74,7 +74,7 @@ class Workflow(WorkflowManager):
 
             # Run FeatureFinderMetabo tool with input and output files.
             self.executor.run_topp(
-            "base", input_output={"in": in_fasta, "out": out_fasta}
+            "DecoyDatabase", input_output={"in": in_fasta, "out": out_fasta}
             )
             self.params["NucleicAcidSearchEngine"]["fdr:cutoff"] = self.params["FDR_cutoff"]
             self.params["NucleicAcidSearchEngine"]["fdr:decoy_pattern"] = "DECOY_"
