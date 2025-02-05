@@ -4,6 +4,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import importlib
 from io import StringIO
 import os
 
@@ -95,12 +96,13 @@ def read_rna_modifications(directory=None, include_custom=True):
     Returns:
         pd.DataFrame: Data frame containing modification definitions.
     """
+    print(directory)
     if directory is None:
-        hostname = os.uname().nodename  # Get system hostname
-        if hostname == "holz":  # CHANGE THIS
-            directory = "/usr/share/OpenMS/CHEMISTRY"  # CHANGE THIS
+        pyopenms_loc = importlib.util.find_spec("pyopenms").submodule_search_locations[0]
+        if pyopenms_loc is not None:
+            directory = os.path.join(pyopenms_loc, "share/OpenMS/CHEMISTRY/")
         else:
-            raise ValueError("Unknown system - directory name required")
+            raise ModuleNotFoundError("pyopenms not found")
 
     # Define column types
     col_types = {i: str for i in range(9)}
