@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import shutil
+from src import plot_full_coverage
 from .workflow.WorkflowManager import WorkflowManager
 from src import view
 from src import fileupload
@@ -173,6 +174,12 @@ class Workflow(WorkflowManager):
                     file_name = Path(self.params["mzML-files"]).stem + '.mztab',
                     mime = "mztab"
                 )
+                mztab1 = plot_full_coverage.read_mzTab(self.file_manager.get_files("tab_out", set_results_dir="mztab_results")[0])
+                html_string = plot_full_coverage.make_coverage_html(mztab1)
+
+                # Display the HTML string
+                st.components.v1.html(html_string, height=600, scrolling=True)
+
             #It is possible that we cached an empty df if there were no results from the search
             else:
                 st.warning("Search returned no results")

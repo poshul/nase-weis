@@ -65,5 +65,5 @@ Download the latest version for Windows here by clicking the button below.
             type="primary",
         )
     st.markdown("""
-Extract the zip file and run the batch script (run_app.bat) file to launch the app. Since every dependency is compressed and packacked the app will take a while to launch (up to one minute).
+Extract the zip file and run the installer (.msi) file to install the app. The app can then be launched using the corresponding desktop icon.
 """)
