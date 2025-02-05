@@ -210,7 +210,7 @@ def get_color_scale(nmax, nmin=1, n_colors=8):
             scale = np.ceil(np.round(base ** np.arange(0, exp + 1), 1))
 
     scale = scale + nmin - 1
-    colors = plt.cm.magma(np.linspace(0, 1, len(scale)))
+    colors = plt.cm.magma(np.linspace(1, 0, len(scale)))
     scale_colors = {str(i): mcolors.to_hex(colors[i]) for i in range(len(scale))}
     return scale, scale_colors
 

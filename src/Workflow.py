@@ -42,12 +42,12 @@ class Workflow(WorkflowManager):
             # Parameters for DecoyDatabase TOPP tool.
             self.ui.input_widget("add-decoys", True, "Do FDR?", "Add decoys (required to calculate false discovery rate)")
             self.ui.input_widget("FDR_cutoff", 0.05, "FDR cutoff?", "What FDR cutoff should we use?", "number", min_value=0.0, max_value=1.0)
-            self.ui.input_TOPP("DecoyDatabase", custom_defaults={"type" : "RNA", "method" : "shuffle" }, exclude_parameters=["decoy_string", "decoy_string_position", "enzyme", "only_decoy", "type", "non_shuffle_pattern", "method"])
+            self.ui.input_TOPP("DecoyDatabase", custom_defaults={"type" : "RNA", "method" : "shuffle" }, exclude_parameters=["decoy_string", "decoy_string_position", "enzyme", "only_decoy", "type", "non_shuffle_pattern", "method", "NeighborSearch"])
 
         with t[1]:
             self.ui.input_widget("ms1_resolution", 60000.0, "MS1 approximate resolution?", "The approximate resolution at which MS1 scans were acquired", "number", min_value=1, max_value=10000000)
             self.ui.input_widget("ms2_resolution", 60000.0, "MS2 approximate resolution?", "The approximate resolution at which MS2 scans were acquired", "number", min_value=1, max_value=10000000)
-            self.ui.input_TOPP("NucleicAcidSearchEngine", custom_defaults={"oligo:enzyme" : "RNase_T1"}, exclude_parameters=["variable", "precursor:mass_tolerance", "precursor:mass_tolerance_unit", "decharge_ms2", "include_unknown_charge" , "precursor:use_avg_mass", "precursor:isotopes", "precursor:min_charge", "precursor:max_charge", "precursor:use_adducts", "precursor:potential_adducts", "fragment:mass_tolerance", "fragment:mass_tolerance_unit", "fragment:ions", "resolve_ambiguities", "decoy_pattern", "max_size", "cutoff", "remove_decoys", "min_size"])
+            self.ui.input_TOPP("NucleicAcidSearchEngine", custom_defaults={"oligo:enzyme" : "RNase_T1"}, exclude_parameters=["variable", "precursor:mass_tolerance", "precursor:mass_tolerance_unit", "decharge_ms2", "include_unknown_charge" , "precursor:use_avg_mass", "precursor:isotopes", "precursor:min_charge", "precursor:max_charge", "precursor:use_adducts", "precursor:potential_adducts", "fragment:mass_tolerance", "fragment:mass_tolerance_unit", "fragment:ions", "resolve_ambiguities", "decoy_pattern", "max_size", "cutoff", "remove_decoys"])
 
 
     def execution(self) -> None:
@@ -80,6 +80,7 @@ class Workflow(WorkflowManager):
             self.params["NucleicAcidSearchEngine"]["fdr:cutoff"] = self.params["FDR_cutoff"]
             self.params["NucleicAcidSearchEngine"]["fdr:decoy_pattern"] = "DECOY_"
         else:
+            self.params["NucleicAcidSearchEngine"]["fdr:decoy_pattern"] = ""
             out_fasta = in_fasta # Use the un-decoyed fasta if we don't want decoys
 
         # Magic UX improving logic
@@ -98,6 +99,7 @@ class Workflow(WorkflowManager):
         elif self.params["ms1_resolution"] <= 1000000:
             #MS1 high-res
             self.params["NucleicAcidSearchEngine"]["precursor:mass_tolerance"] = 10
+            self.params["NucleicAcidSearchEngine"]["precursor:include_unknown_charge"] = True
 
 
         else:
@@ -105,13 +107,13 @@ class Workflow(WorkflowManager):
             self.params["NucleicAcidSearchEngine"]["precursor:mass_tolerance"] = 3
         
         if self.params["ms2_resolution"] <= 1500:
-            #MS1 low-res
+            #MS2 low-res
             self.params["NucleicAcidSearchEngine"]["fragment:mass_tolerance"] = 1500
         elif self.params["ms2_resolution"] <= 30000:
-            #MS1 medium-res
+            #MS2 medium-res
             self.params["NucleicAcidSearchEngine"]["fragment:mass_tolerance"] = 100
         elif self.params["ms2_resolution"] <= 1000000:
-            #MS1 high-res
+            #MS2 high-res
             self.params["NucleicAcidSearchEngine"]["fragment:mass_tolerance"] = 10
         else:
             #I'm jealous
@@ -158,27 +160,25 @@ class Workflow(WorkflowManager):
             if not st.session_state['df'].empty:
                 # Tabley goodness
                 show_table(st.session_state['df'], download_name="results")
-
                 with open (self.file_manager.get_files("id_out", set_results_dir="idxml_results")[0]) as file:
-                  st.download_button(
-                    label = "Download idXML",
-                    data = file,
-                    file_name = Path(self.params["mzML-files"]).stem + '.idXML',
-                    mime = "idXML"
-                )
-                  
+                    st.download_button(
+                        label = "Download idXML",
+                        data = file,
+                        file_name = Path(self.params["mzML-files"]).stem + '.idXML',
+                        mime = "idXML"
+                    )
                 with open (self.file_manager.get_files("tab_out", set_results_dir="mztab_results")[0]) as file:
-                  st.download_button(
-                    label = "Download mztab",
-                    data = file,
-                    file_name = Path(self.params["mzML-files"]).stem + '.mztab',
-                    mime = "mztab"
-                )
+                    st.download_button(
+                        label = "Download mztab",
+                        data = file,
+                        file_name = Path(self.params["mzML-files"]).stem + '.mztab',
+                        mime = "mztab"
+                    )
                 mztab1 = plot_full_coverage.read_mzTab(self.file_manager.get_files("tab_out", set_results_dir="mztab_results")[0])
                 html_string = plot_full_coverage.make_coverage_html(mztab1)
 
                 # Display the HTML string
-                st.components.v1.html(html_string, height=600, scrolling=True)
+                st.components.v1.html(html_string, height=2000, scrolling=True)
 
             #It is possible that we cached an empty df if there were no results from the search
             else:
