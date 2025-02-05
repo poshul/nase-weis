@@ -1,3 +1,6 @@
+# Authors: Hendrik Weisser, Samuel Wein
+# License: BSD 3-clause
+
 import csv
 import pandas as pd
 import re
@@ -8,6 +11,12 @@ import importlib
 from io import StringIO
 import os
 
+
+#' Read an mzTab file containing NucleicAcidSearchEngine results
+#'
+#' @param path Path to the mzTab file
+#'
+#' @return List of data frames for the different mzTab parts
 def read_mzTab(path):
     def process_buffer(buffer, col_names, result):
         data = pd.read_csv(StringIO('\n'.join(buffer)), sep="\t", header=None, names=col_names, na_values="null")
@@ -37,8 +46,9 @@ def read_mzTab(path):
     process_buffer(buffer, col_names, result)
     return result
 
+#' Split a (modified) oligonucleotide sequence given as a string into a list of
+#' (modified) nucleotides
 def split_sequence(seq):
-    #assert len(seq) == 1, "Only single sequences are allowed."
     split = list(seq)
     bracket_open = [i for i, char in enumerate(split) if char == "["]
     bracket_close = [i for i, char in enumerate(split) if char == "]"]
@@ -63,28 +73,70 @@ def split_sequence(seq):
 
     return split
 
-
+#' Resolve ambiguities in sequence assignments due to different localisations
+#' of modifications
+# TODO: This is untested use with caution
 def resolve_ambiguities(mztab, groups={"m5C?": ["C", "m5C"]}):
-    mztab['OSM']['sequence'] = mztab['OSM']['sequence'].astype(str)
-    mztab['OLI']['sequence'] = mztab['OLI']['sequence'].astype(str)
-
-    parts = {key: group for key, group in mztab['OSM'].groupby('spectra_ref') if len(group) > 1}
+    """
+    Resolve ambiguities in sequence assignments due to different localizations of modifications.
+    """
+    mztab["OSM"]["sequence"] = mztab["OSM"]["sequence"].astype(str)
+    mztab["OLI"]["sequence"] = mztab["OLI"]["sequence"].astype(str)
+    parts = {key: df for key, df in mztab["OSM"].groupby("spectra_ref")}
+    nrows = {key: len(df) for key, df in parts.items()}
+    ambig = {key: df for key, df in parts.items() if nrows[key] > 1}
+    unexpected = set()
+    
     resolved = []
-
-    for part in parts.values():
-        split_seqs = [split_sequence(seq) for seq in part['sequence']]
+    for spectra_ref, part in ambig.items():
+        split_seqs = [list(seq) for seq in part["sequence"]]
         lengths = [len(seq) for seq in split_seqs]
-        assert all(length == lengths[0] for length in lengths), "Sequence length mismatch"
-        mat = pd.DataFrame(split_seqs)
-        consensus = mat.apply(lambda nucs: resolve_nucleotides(nucs, groups))
-
-        con_seq = "".join(consensus)
-        part.at[0, "sequence"] = con_seq
-        resolved.append(part.iloc[0])
-
-    # Further processing can be done here for unresolved parts, adding back to mztab
+        assert all(length == lengths[0] for length in lengths), "Length mismatch in sequences."
+        
+        mat = np.array(split_seqs)
+        consensus = []
+        
+        for column in mat.T:
+            unique_nucs = sorted(set(column))
+            if len(unique_nucs) > 1:
+                matches = [group for group, members in groups.items() if set(unique_nucs).issubset(members)]
+                if matches:
+                    consensus.append(matches[0])
+                else:
+                    signature = ", ".join(unique_nucs)
+                    if signature not in unexpected:
+                        print(f"Warning: unexpected ambiguity: {signature}")
+                        unexpected.add(signature)
+                    consensus.append("|".join(unique_nucs))
+            else:
+                consensus.append(unique_nucs[0])
+        
+        con_seq = "".join(
+            f"[{nuc}]" if len(nuc) > 2 or (len(nuc) == 2 and not (nuc.startswith("p") or nuc.endswith("p"))) else nuc
+            for nuc in consensus
+        )
+        
+        if con_seq not in mztab["OLI"]["sequence"].values:
+            rows = mztab["OLI"][mztab["OLI"]["sequence"].isin(part["sequence"])].copy()
+            rows["sequence"] = con_seq
+            mztab["OLI"] = pd.concat([mztab["OLI"], rows.drop_duplicates()], ignore_index=True)
+        
+        resolved.append(part.iloc[[0]].assign(sequence=con_seq))
+    
+    unambig = [df for key, df in parts.items() if nrows[key] == 1]
+    mztab["OSM"] = pd.concat(unambig + resolved, ignore_index=True)
+    mztab["OLI"] = mztab["OLI"][mztab["OLI"]["sequence"].isin(mztab["OSM"]["sequence"])]
+    mztab["OSM"]["sequence"] = mztab["OSM"]["sequence"].astype("category")
+    mztab["OLI"]["sequence"] = mztab["OLI"]["sequence"].astype("category")
+    
     return mztab
 
+#' Read in RNA modification definitions (MODOMICS format)
+#'
+#' @param directory Directory containing modification data file(s)
+#' @param include_custom Include custom mod. definitions?
+#'
+#' @return Data frame containing modification definitions
 def read_rna_modifications(directory=None, include_custom=True):
     """
     Read in RNA modification definitions (MODOMICS format).
@@ -134,6 +186,15 @@ def read_rna_modifications(directory=None, include_custom=True):
     return mod_info
 
 
+## Coverage plotting functions:
+
+#' Generate a discrete color scale for a range of values
+#'
+#' @param nmax Maximum value
+#' @param nmin Minimum value
+#' @param n_colors Number of colors to use
+#'
+#' @return Vector of break points named with color codes
 def get_color_scale(nmax, nmin=1, n_colors=8):
     assert nmin <= nmax
     nmax = nmax - nmin + 1
@@ -153,6 +214,17 @@ def get_color_scale(nmax, nmin=1, n_colors=8):
     scale_colors = {str(i): mcolors.to_hex(colors[i]) for i in range(len(scale))}
     return scale, scale_colors
 
+
+#' Generate a table of "stacked bars" representing oligonucleotides
+#'
+#' @param oligo_data Oligonucleotide data (from mzTab)
+#' @param osm_data Spectrum-match data (from mzTab)
+#' @param nuc_length Length of the full RNA sequence
+#' @param color_scale Color scale (from [get.color.scale()])
+#' @param mod_info Table with RNA modification data (from MODOMICS)
+#' @param mods User-defined mapping of modifications to symbols
+#'
+#' @return Matrix of HTML table cells
 def make_coverage_table(oligo_data, osm_data, nuc_length, color_scale, colors, mod_info, mods={}):
     """
     Generate a table of "stacked bars" representing oligonucleotides.
@@ -219,7 +291,7 @@ def make_coverage_table(oligo_data, osm_data, nuc_length, color_scale, colors, m
     
     return table
 
-
+#' Return the HTML page header for the coverage plot
 def get_html_header():
     """Return the HTML page header for the coverage plot."""
     return """<!doctype html>
@@ -264,6 +336,7 @@ table, th, td {
 <body>
 """
 
+#' Return HTML code for the color scale (from [get_color_scale()])
 def get_scale_html(color_scale, colors):
     """Return HTML code for the color scale."""
     html = "<table style=\"text-align:center\">\n<tr>\n<td>Spectral counts:</td>\n"
@@ -279,6 +352,18 @@ def get_scale_html(color_scale, colors):
     html += "</tr>\n</table>\n"
     return html
 
+#' Helper function to generate HTML code for the coverage plot of a single RNA
+#'
+#' @param accession Database accession of the RNA
+#' @param mztab1 First mzTab file containing RNA data
+#' @param mztab2 Optional second mzTab file containing RNA data
+#' @param labels Labels to show for two mzTab files
+#' @param break_at Add line breaks after this many bases in the sequence
+#' @param color_scale Color scale (from [get_color_scale()])
+#' @param mod_info Table with RNA modification data (from MODOMICS)
+#' @param description Description of the RNA
+#'
+#' @return HTML code
 def make_coverage_html_single(accession, mztab1, mztab2=None, labels=None,
                                break_at=float('inf'), color_scale=None, colors=None, mod_info=None, description=None):
     """Helper function to generate HTML code for the coverage plot of a single RNA."""
@@ -359,6 +444,15 @@ def make_coverage_html_single(accession, mztab1, mztab2=None, labels=None,
     html += "</table>\n"
     return html
 
+#' Generate a full HTML coverage plot for RNA data in one or two mzTab files
+#'
+#' @param mztab1 First mzTab file containing RNA data
+#' @param mztab2 Optional second mzTab file containing RNA data
+#' @param labels Labels to show for two mzTab files
+#' @param break_at Add line breaks after this many bases in the sequence
+#' @param mod_info Table with RNA modification data (from MODOMICS)
+#'
+#' @return HTML code
 def make_coverage_html(mztab1, mztab2=None, labels=None, break_at=100, mod_info=read_rna_modifications()):
     """Generate a full HTML coverage plot for RNA data in one or two mzTab files."""
     html = get_html_header()
