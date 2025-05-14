@@ -8,8 +8,7 @@ params = page_setup()
 
 wf = Workflow()
 
-st.title(wf.name)
-
+st.image("assets/NASEWEIS.png", width=300)
 t = st.tabs(["**How to use NASEWEIS**", "📁 **File Upload**", "⚙️ **Configure**", "🚀 **Run**", "📊 **Results**"])
 with t[0]:
     st.markdown("""

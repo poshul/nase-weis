@@ -21,16 +21,16 @@ Returns:
 from pathlib import Path
 import streamlit as st
 
-from src.common.common import page_setup
+from src.common.common import page_setup, v_space
 
 page_setup(page="main")
-
-st.title("NASEWEIS App")
+st.image("assets/NASEWEIS.png", width=300)
 st.info("""
 This repository contains a simple NucleicAcidSearchEngine workflow in a web application using the **streamlit** framework. It includes solutions for handling user data and parameters in workspaces as well as deployment with docker-compose.
 """)
-st.subheader("Features")
-st.markdown("""
+c1, c2 = st.columns(2)
+c1.subheader("Features")
+c1.markdown("""
 - Workspaces for user data with unique shareable IDs
 - Persistent parameters and input files within a workspace
 - Captcha control
@@ -38,10 +38,18 @@ st.markdown("""
 - Deploy multiple apps easily with [docker-compose](https://github.com/OpenMS/streamlit-deployment)
 """
 )
+
 v_space(1, c2)
+c2.markdown("""
+NASEWEIS is powered by:
+            """)
+c2.image("assets/openms_transparent_bg_logo.svg", width=300)
+c2.markdown("""
+and
+            """)
 c2.image("assets/pyopenms_transparent_background.png", width=300)
-st.subheader("Quick Start")
-st.markdown("""
+c1.subheader("Quick Start")
+c1.markdown("""
                     1. Select "NASEWEIS" in the sidebar.
                                 
                     2. Load the example mzML (raw data) by clicking the "Load Example Data" button under the "MS data" tab of "📁File Upload".

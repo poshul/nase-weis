@@ -415,6 +415,7 @@ def render_sidebar(page: str = "") -> None:
                 f'<div class="version-box">{app_name}<br>Version: {version_info}</div>',
                 unsafe_allow_html=True,
             )
+            st.image("assets/openms_transparent_bg_logo.svg", "powered by", use_container_width=True)
     return params
 
 

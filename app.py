@@ -10,7 +10,7 @@ if "settings" not in st.session_state:
 
 if __name__ == '__main__':
     pages = {
-        str(st.session_state.settings["NASEWEIS"]) : [
+        str(st.session_state.settings["app-name"]) : [
             st.Page(Path("content", "quickstart.py"), title="Quickstart", icon="👋"),
             st.Page(Path("content", "naseweis.py"), title="NASEWEIS", icon="👃"),
         ]
