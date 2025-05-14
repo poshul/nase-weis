@@ -45,11 +45,12 @@ RUN wget -q \
     && rm -f Miniforge3-Linux-x86_64.sh
 RUN mamba --version
 
-# Activate and configure the mamba environment
-RUN mamba update -n base -c conda-forge mamba && mamba info && mamba create -n streamlit-env python=3.10
-# note: activation of mamba needs to go to bashrc because every RUN command spawns new bash
+# Setup mamba environment.
+COPY environment.yml ./environment.yml
+RUN mamba env create -f environment.yml
+RUN echo "mamba activate streamlit-env" >> ~/.bashrc
+SHELL ["/bin/bash", "--rcfile", "~/.bashrc"]
 SHELL ["mamba", "run", "-n", "streamlit-env", "/bin/bash", "-c"]
-RUN echo "source activate streamlit-env" > ~/.bashrc
 
 #################################### install streamlit
 # install packages
@@ -84,8 +85,9 @@ RUN echo "0 3 * * * /root/miniforge3/envs/streamlit-env/bin/python /app/clean-up
 
 # create entrypoint script to start cron service and launch streamlit app
 RUN echo "#!/bin/bash" > /app/entrypoint.sh
-RUN echo "service cron start" >> /app/entrypoint.sh
-RUN echo "mamba run --no-capture-output -n streamlit-env streamlit run app.py" >> /app/entrypoint.sh
+RUN echo "source /root/miniforge3/bin/activate streamlit-env" >> /app/entrypoint.sh && \
+    echo "service cron start" >> /app/entrypoint.sh && \
+    echo "streamlit run app.py" >> /app/entrypoint.sh
 # make the script executable
 RUN chmod +x /app/entrypoint.sh
 
@@ -95,10 +97,10 @@ RUN mamba run -n streamlit-env python hooks/hook-analytics.py
 # Set Online Deployment
 RUN jq '.online_deployment = true' settings.json > tmp.json && mv tmp.json settings.json
 
-# Download latest OpenMS App executable for Windows from Github actions workflow.
+# Download latest OpenMS App executable as a ZIP file
 RUN if [ -n "$GH_TOKEN" ]; then \
         echo "GH_TOKEN is set, proceeding to download the release asset..."; \
-        gh run download -R ${GITHUB_USER}/${GITHUB_REPO} $(gh run list -R ${GITHUB_USER}/${GITHUB_REPO} -b main -e push -s completed -w "Build executable for Windows" --json databaseId -q '.[0].databaseId') -n OpenMS-App --dir /app; \
+        gh release download -R ${GITHUB_USER}/${GITHUB_REPO} -p "OpenMS-App.zip" -D /app; \
     else \
         echo "GH_TOKEN is not set, skipping the release asset download."; \
     fi

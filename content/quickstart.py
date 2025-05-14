@@ -35,9 +35,11 @@ st.markdown("""
 - Persistent parameters and input files within a workspace
 - Captcha control
 - Packaged executables for Windows
-- framework for workflows with OpenMS TOPP tools
-- Deployment [with docker-compose](https://github.com/OpenMS/streamlit-deployment)
-""")
+- Deploy multiple apps easily with [docker-compose](https://github.com/OpenMS/streamlit-deployment)
+"""
+)
+v_space(1, c2)
+c2.image("assets/pyopenms_transparent_background.png", width=300)
 st.subheader("Quick Start")
 st.markdown("""
                     1. Select "NASEWEIS" in the sidebar.
