@@ -51,15 +51,14 @@ RUN wget -q \
 RUN mamba --version
 
 # Setup mamba environment.
-COPY environment.yml ./environment.yml
-RUN mamba env create -f environment.yml
+RUN mamba create -n streamlit-env python=3.10
 RUN echo "mamba activate streamlit-env" >> ~/.bashrc
 SHELL ["/bin/bash", "--rcfile", "~/.bashrc"]
 SHELL ["mamba", "run", "-n", "streamlit-env", "/bin/bash", "-c"]
 
 # Install up-to-date cmake via mamba and packages for pyOpenMS build.
 RUN mamba install cmake
-RUN pip install --upgrade pip && python -m pip install -U setuptools nose Cython==3.0 autowrap pandas numpy pytest
+RUN pip install --upgrade pip && python -m pip install -U setuptools nose 'cython<3.1' autowrap pandas numpy pytest
 
 # Clone OpenMS branch and the associcated contrib+thirdparties+pyOpenMS-doc submodules.
 RUN git clone --recursive --depth=1 -b ${OPENMS_BRANCH} --single-branch ${OPENMS_REPO} && cd /OpenMS
@@ -93,6 +92,10 @@ RUN make -j4 pyopenms
 WORKDIR /openms-build/pyOpenMS
 RUN pip install dist/*.whl
 
+# Install other dependencies (excluding pyopenms)
+COPY requirements.txt ./requirements.txt 
+RUN grep -Ev '^pyopenms([=<>!~].*)?$' requirements.txt > requirements_cleaned.txt && mv requirements_cleaned.txt requirements.txt
+RUN pip install -r requirements.txt
 
 WORKDIR /
 RUN mkdir openms
