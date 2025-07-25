@@ -157,7 +157,7 @@ class Workflow(WorkflowManager):
                     st.session_state['df'] = None
 
             # We are using the cached DF. Just do the display
-            if not st.session_state['df'].empty:
+            if st.session_state['df'] is not None and not st.session_state['df'].empty:
                 # Tabley goodness
                 show_table(st.session_state['df'], download_name="results")
                 with open (self.file_manager.get_files("id_out", set_results_dir="idxml_results")[0]) as file:

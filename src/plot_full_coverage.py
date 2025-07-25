@@ -150,11 +150,12 @@ def read_rna_modifications(directory=None, include_custom=True):
     """
     print(directory)
     if directory is None:
-        pyopenms_loc = importlib.util.find_spec("pyopenms").submodule_search_locations[0]
-        if pyopenms_loc is not None:
+        pyopenms_spec = importlib.util.find_spec("pyopenms")
+        if pyopenms_spec is not None and pyopenms_spec.submodule_search_locations:
+            pyopenms_loc = pyopenms_spec.submodule_search_locations[0]
             directory = os.path.join(pyopenms_loc, "share/OpenMS/CHEMISTRY/")
         else:
-            raise ModuleNotFoundError("pyopenms not found")
+            raise ModuleNotFoundError("pyopenms not found or not properly installed")
 
     # Define column types
     col_types = {i: str for i in range(9)}
@@ -453,8 +454,11 @@ def make_coverage_html_single(accession, mztab1, mztab2=None, labels=None,
 #' @param mod_info Table with RNA modification data (from MODOMICS)
 #'
 #' @return HTML code
-def make_coverage_html(mztab1, mztab2=None, labels=None, break_at=100, mod_info=read_rna_modifications()):
+def make_coverage_html(mztab1, mztab2=None, labels=None, break_at=100, mod_info=None):
     """Generate a full HTML coverage plot for RNA data in one or two mzTab files."""
+    if mod_info is None:
+        mod_info = read_rna_modifications()
+    
     html = get_html_header()
     count_range = [min(mztab1['OSM']['sequence'].value_counts()), max(mztab1['OSM']['sequence'].value_counts())]
     accessions = sorted(mztab1['NUC']['accession'].unique())
