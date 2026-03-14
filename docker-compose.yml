@@ -1,18 +1,20 @@
-
 services:
-  openms-streamlit-template:
+  naseweis:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         GITHUB_TOKEN: $GITHUB_TOKEN
-    image: openms_streamlit_template
-    container_name: openms-streamlit-template
+    image: naseweis
+    container_name: naseweis
     restart: always
     ports:
       - 8501:8501
     volumes:
       - workspaces-streamlit-template:/workspaces-streamlit-template
-    command: streamlit run openms-streamlit-template/app.py
+    environment:
+      # Number of Streamlit server instances (default: 1 = no load balancer).
+      # Set to >1 to enable nginx load balancing across multiple Streamlit instances.
+      - STREAMLIT_SERVER_COUNT=1
 volumes:
   workspaces-streamlit-template:

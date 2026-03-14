@@ -3,7 +3,7 @@ from pathlib import Path
 from os import makedirs
 import streamlit as st
 
-from src.common.common import reset_directory
+from src.common.common import reset_directory, OS_PLATFORM
 
 
 @st.cache_data
@@ -92,6 +92,8 @@ def load_example_files(file_type, directory) -> None:
 def load_example_mzML_files() -> None:
     """
     Copies example mzML files to the mzML directory.
+
+    On Linux, creates symlinks to example files instead of copying them.
 
     Args:
         None
